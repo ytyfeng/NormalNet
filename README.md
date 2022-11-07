@@ -1,5 +1,5 @@
-#ECS 271 project
+# ECS 271 project
 
-##Ty Feng, Yasaman Hajnorouzali, Mahdis Rabbani
+## Ty Feng, Yasaman Hajnorouzali, Mahdis Rabbani
 
 
