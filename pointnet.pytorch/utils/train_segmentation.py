@@ -125,8 +125,8 @@ if __name__ == "__main__":
                 pred_choice = pred.data.max(1)[1]
                 correct = pred_choice.eq(target.data).cpu().sum()
                 print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize * 2500)))
-
-        torch.save(classifier.state_dict(), '%s/seg_model_%s_%d.pth' % (opt.outf, opt.class_choice, epoch))
+        if epoch % 10 == 0:
+            torch.save(classifier.state_dict(), '%s/seg_model_%s_%d.pth' % (opt.outf, opt.class_choice, epoch))
 
     ## benchmark mIOU
     shape_ious = []
