@@ -51,7 +51,9 @@ def train_normalnet(opt):
 
     blue = lambda x: '\033[94m' + x + '\033[0m'
 
-    classifier = NormalNet(sym_op = opt.sym_op, feature_transform=opt.feature_transform)
+    classifier = NormalNet(sym_op = opt.sym_op, 
+        feature_transform=opt.feature_transform,
+        global_feat=opt.global_feature)
 
     if opt.model != '':
         classifier.load_state_dict(torch.load(opt.model))
@@ -148,6 +150,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default='', help='model path')
     parser.add_argument('--dataset', type=str, required=True, help="dataset path")
     parser.add_argument('--feature_transform', default=False, help="use feature transform")
+    parser.add_argument('--global_feature', default=True, help="use global feature or local feature")
     parser.add_argument('--sym_op', type=str, default='max', help='symmetry operation: max or sum')
     parser.add_argument('--normal_loss', type=str, default='ms_euclidean', help='Normal loss:\n'
                         'ms_euclidean: mean square euclidean distance\n'
