@@ -48,7 +48,7 @@ class ShapeNetDataset(data.Dataset):
         normals = np.load(fn[2])
         print(point_set.shape, normals.shape)
 
-        choice = np.random.choice(len(seg), self.npoints, replace=True)
+        choice = np.random.choice(len(normals), self.npoints, replace=True)
         #resample
         point_set = point_set[choice, :]
 
