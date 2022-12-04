@@ -72,7 +72,7 @@ def train_normalnet(opt):
     for epoch in range(opt.nepoch):
         loss_avg = 0.0
         for i, data in enumerate(dataloader, 0):
-            scheduler.step(epoch * num_batch + i)
+            
             points, target = data
             points = points.transpose(2, 1)
             if (mps_device != None):
@@ -93,6 +93,7 @@ def train_normalnet(opt):
                 loss += feature_transform_regularizer(trans_feat) * 0.001
             loss.backward()
             optimizer.step()
+            scheduler.step(epoch * num_batch + i)
             
             print('[%d: %d/%d] train loss: %f' % (epoch, i, num_batch, loss.item()))
 
