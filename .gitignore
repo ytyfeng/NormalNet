@@ -10,3 +10,4 @@ seg/
 *.egg-info/
 *~
 .DS_Store
+*pclouds/

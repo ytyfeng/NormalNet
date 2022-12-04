@@ -95,7 +95,7 @@ class STNkd(nn.Module):
         return x
 
 class PointNetfeat(nn.Module):
-    def __init__(self, global_feat = True, feature_transform = False):
+    def __init__(self, global_feat = True, sym_op='max', feature_transform = False):
         super(PointNetfeat, self).__init__()
         self.mps_device = None
         if torch.backends.mps.is_available():
@@ -107,6 +107,7 @@ class PointNetfeat(nn.Module):
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
+        self.sym_op = sym_op
         self.global_feat = global_feat
         self.feature_transform = feature_transform
         if self.feature_transform:
@@ -131,13 +132,48 @@ class PointNetfeat(nn.Module):
         pointfeat = x
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.bn3(self.conv3(x))
-        x = torch.max(x, 2, keepdim=True)[0]
+        # symmetric operation: max or sum
+        if self.sym_op == 'max':
+            x = torch.max(x, 2, keepdim=True)[0]
+        elif self.sym_op == 'sum':
+            x = torch.sum(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
         if self.global_feat:
             return x, trans, trans_feat
         else:
+            # should use local point features for normal estimation, since normal is a local property
             x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
+
+class NormalNet(nn.Module):
+    def __init__(self, k = 2, global_feat = False, sym_op='max', feature_transform = False, output_dim=3):
+        super(NormalNet, self).__init__()
+        self.k = k
+        self.feature_transform=feature_transform
+        self.feat = PointNetfeat(global_feat = global_feat, 
+            sym_op=sym_op, 
+            feature_transform = feature_transform)
+        self.conv1 = torch.nn.Conv1d(1088, 512, 1)
+        self.conv2 = torch.nn.Conv1d(512, 256, 1)
+        self.conv3 = torch.nn.Conv1d(256, 128, 1)
+        self.bn1 = nn.BatchNorm1d(512)
+        self.bn2 = nn.BatchNorm1d(256)
+        self.bn3 = nn.BatchNorm1d(128)
+        self.fc = nn.Linear(128, output_dim)
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        n_pts = x.size()[2]
+        x, trans, trans_feat = self.feat(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.fc(x)
+        #x = x.transpose(2,1).contiguous()
+        #x = F.log_softmax(x.view(-1,self.k), dim=-1)
+        #x = x.view(batchsize, n_pts, self.k)
+        return x, trans, trans_feat
+
 
 class PointNetCls(nn.Module):
     def __init__(self, k=2, feature_transform=False):
