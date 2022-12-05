@@ -62,7 +62,8 @@ class ShapeNetDataset(data.Dataset):
             point_set[:,[0,2]] = point_set[:,[0,2]].dot(rotation_matrix) # random rotation
             point_set += np.random.normal(0, 0.02, size=point_set.shape) # random jitter
 
-        normals = normals[choice]
+        normals = normals[choice, :]
+        print(point_set.shape, normals.shape)
         point_set = torch.from_numpy(point_set)
         normals = torch.from_numpy(normals)
         

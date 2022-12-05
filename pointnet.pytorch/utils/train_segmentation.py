@@ -9,7 +9,7 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 import torch.utils.data
 from pointnet.dataset import ShapeNetDataset
-from pointnet.model import NormalNet, feature_transform_regularizer
+from pointnet.model import NormalNet, PCPNet, PointNetDenseCls, feature_transform_regularizer
 import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
@@ -24,7 +24,7 @@ def train_normalnet(opt):
 
     dataset = ShapeNetDataset(
         root=opt.dataset,
-        shape_list_filename='trainingset_no_noise.txt')
+        shape_list_filename='trainingset_whitenoise.txt')
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batchSize,
@@ -51,10 +51,13 @@ def train_normalnet(opt):
 
     blue = lambda x: '\033[94m' + x + '\033[0m'
 
+    
     classifier = NormalNet(sym_op = opt.sym_op, 
         feature_transform=opt.feature_transform,
         global_feat=opt.global_feature)
-
+    
+    # classifier = PointNetDenseCls()
+    # classifier = PCPNet(sym_op = opt.sym_op)
     if opt.model != '':
         classifier.load_state_dict(torch.load(opt.model))
 
@@ -67,7 +70,8 @@ def train_normalnet(opt):
     else:
         classifier.cuda()
 
-    num_batch = len(dataloader)
+    num_batch = len(dataset) / opt.batchSize
+    print("num_batch len(dataloader): " + str(num_batch))
     losses = []
     for epoch in range(opt.nepoch):
         loss_avg = 0.0
@@ -75,6 +79,8 @@ def train_normalnet(opt):
             
             points, target = data
             points = points.transpose(2, 1)
+            print("in training, points size: " + str(points.size()))
+            print("in training, target size: " + str(target.size()))
             if (mps_device != None):
                 points, target = points.to(mps_device), target.to(mps_device)
             else: 
@@ -83,17 +89,18 @@ def train_normalnet(opt):
             classifier = classifier.train()
             pred, trans, trans_feat = classifier(points)
             
-            # pred = pred.view(-1, num_classes)
-            # target = target.view(-1, 1)[:, 0] - 1
-
-            #print(pred.size(), target.size())
+            #pred = pred.view(-1, 3)
+            # target = target.transpose(2,1)
+            #target = target.view(-1, 1)[:, 0] - 1
+            print("pred and target size: ")
+            print(pred.size(), target.size())
             loss = compute_loss(pred, target, opt.normal_loss)
 
             if opt.feature_transform:
                 loss += feature_transform_regularizer(trans_feat) * 0.001
             loss.backward()
             optimizer.step()
-            scheduler.step(epoch * num_batch + i)
+            scheduler.step()
             
             print('[%d: %d/%d] train loss: %f' % (epoch, i, num_batch, loss.item()))
 
@@ -151,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default='', help='model path')
     parser.add_argument('--dataset', type=str, required=True, help="dataset path")
     parser.add_argument('--feature_transform', default=False, help="use feature transform")
-    parser.add_argument('--global_feature', default=True, help="use global feature or local feature")
+    parser.add_argument('--global_feature', default=False, help="use global feature or local feature")
     parser.add_argument('--sym_op', type=str, default='max', help='symmetry operation: max or sum')
     parser.add_argument('--normal_loss', type=str, default='ms_euclidean', help='Normal loss:\n'
                         'ms_euclidean: mean square euclidean distance\n'
