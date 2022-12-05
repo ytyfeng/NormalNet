@@ -180,10 +180,9 @@ def train_normalnet(opt):
         if epoch % (5 * 10**math.floor(math.log10(max(2, epoch-1)))) == 0 or epoch % 100 == 0 or epoch == opt.nepoch-1:
             torch.save(normalnet.state_dict(), os.path.join(opt.outdir, 'Normal_estimation_model_%d.pth' % epoch))
     # write losses to file for graph
-    losses_file = open("losses.txt", "w")
-    losses_file.write(losses)
-    losses_file.close()
-
+    arr = np.array(losses)
+    np.savetxt('losses.txt', arr)
+    
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)
 
