@@ -1,0 +1,9 @@
+cylinder100k
+galera100k
+netsuke100k
+cylinder100k_ddist_minmax
+galera100k_ddist_minmax
+netsuke100k_ddist_minmax
+cylinder100k_ddist_minmax_layers
+galera100k_ddist_minmax_layers
+netsuke100k_ddist_minmax_layers
