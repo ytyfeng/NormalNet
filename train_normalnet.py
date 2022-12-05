@@ -3,6 +3,7 @@ import argparse
 import os
 import random
 import math
+import numpy as np
 import torch
 import torch.nn.parallel
 import torch.optim as optim
@@ -10,6 +11,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 import torch.utils.data
 from dataset import PointcloudPatchDataset, RandomPointcloudPatchSampler
 from normalnet import NormalNet
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -182,7 +184,7 @@ def train_normalnet(opt):
     # write losses to file for graph
     arr = np.array(losses)
     np.savetxt('losses.txt', arr)
-    
+
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)
 
