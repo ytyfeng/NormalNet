@@ -38,7 +38,8 @@ def parse_arguments():
     return parser.parse_args()
 
 def train_normalnet(opt):
-
+    print(opt)
+    
     device = torch.device("cpu" if opt.gpu_idx < 0 else "cuda:%d" % opt.gpu_idx)
     if opt.gpu_idx < 0 and torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -92,10 +93,6 @@ def train_normalnet(opt):
         batch_size=opt.batchSize,
         num_workers=opt.workers)
 
-    # keep the exact training shape names for later reference
-    opt.train_shapes = train_dataset.shape_names
-    opt.test_shapes = test_dataset.shape_names
-
     print('training set: %d patches (in %d batches) - test set: %d patches (in %d batches)' %
           (len(train_datasampler), len(train_dataloader), len(test_datasampler), len(test_dataloader)))
 
@@ -114,7 +111,6 @@ def train_normalnet(opt):
     normalnet.to(device)
 
     train_num_batch = len(train_dataloader)
-    test_num_batch = len(test_dataloader)
 
     # save parameters
     torch.save(opt, params_filename)
@@ -185,8 +181,8 @@ def train_normalnet(opt):
             torch.save(normalnet.state_dict(), os.path.join(opt.outdir, 'Normal_estimation_model_%d.pth' % epoch))
     # write losses to file for graph
     losses_file = open("losses.txt", "w")
-    f.write(losses)
-    f.close()
+    losses_file.write(losses)
+    losses_file.close()
 
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)
