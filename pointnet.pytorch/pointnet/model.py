@@ -156,6 +156,7 @@ class NormalNet(nn.Module):
         self.feat = PointNetfeat(global_feat = global_feat, 
             sym_op=sym_op, 
             feature_transform = feature_transform)
+        '''
         self.conv1 = torch.nn.Conv1d(8, 1024, 1)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 256)
@@ -203,7 +204,7 @@ class NormalNet(nn.Module):
         print("forward x size in normalNet")
         print(x.size())
         return x, trans, trans_feat
-        '''
+        
 class PointNetfeat2(nn.Module):
     def __init__(self, num_scales=1, num_points=500, use_point_stn=True, use_feat_stn=True, sym_op='max', get_pointfvals=False, point_tuple=1):
         super(PointNetfeat2, self).__init__()
