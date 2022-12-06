@@ -7,7 +7,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 class STN3d(nn.Module):
-    def __init__(self):
+    def __init__(self, sym_op="sum"):
         super(STN3d, self).__init__()
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -29,7 +29,10 @@ class STN3d(nn.Module):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
-        x = torch.max(x, 2, keepdim=True)[0]
+        if self.sym_op == 'max':
+            x = torch.max(x, 2, keepdim=True)[0]
+        elif self.sym_op == 'sum':
+            x = torch.sum(x, 2, keepdim=True)[0]
         x = x.view(-1, 1024)
 
         x = F.relu(self.bn4(self.fc1(x)))
@@ -43,40 +46,33 @@ class STN3d(nn.Module):
         x = x.view(-1, 3, 3)
         return x
 
-class STN(nn.Module):
-    def __init__(self, num_points=500, dim=3, sym_op='max'):
-        super(STN, self).__init__()
-
-        self.dim = dim
-        self.sym_op = sym_op
-        self.num_points = num_points
-
-        self.conv1 = torch.nn.Conv1d(self.dim, 64, 1)
+class STNkd(nn.Module):
+    def __init__(self, k=64, sym_op="sum"):
+        super(STNkd, self).__init__()
+        self.conv1 = torch.nn.Conv1d(k, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
-        self.mp1 = torch.nn.MaxPool1d(num_points)
-
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, self.dim*self.dim)
-
+        self.fc3 = nn.Linear(256, k*k)
+        self.relu = nn.ReLU()
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
         self.bn4 = nn.BatchNorm1d(512)
         self.bn5 = nn.BatchNorm1d(256)
 
+        self.k = k
+
     def forward(self, x):
         batchsize = x.size()[0]
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
-
-        # symmetric operation over all points
         if self.sym_op == 'max':
-            x = self.mp1(x)
+            x = torch.max(x, 2, keepdim=True)[0]
         elif self.sym_op == 'sum':
-            x = torch.sum(x, 2, keepdim=True)
+            x = torch.sum(x, 2, keepdim=True)[0]
         
         x = x.view(-1, 1024)
 
@@ -84,22 +80,22 @@ class STN(nn.Module):
         x = F.relu(self.bn5(self.fc2(x)))
         x = self.fc3(x)
 
-        iden = torch.eye(self.dim, dtype=x.dtype, device=x.device).view(1, self.dim*self.dim).repeat(batchsize, 1)
+        iden = Variable(torch.from_numpy(np.eye(self.k).flatten().astype(np.float32))).view(1,self.k*self.k).repeat(batchsize,1)
+        if x.is_cuda:
+            iden = iden.cuda()
         x = x + iden
-        x = x.view(-1, self.dim, self.dim)
+        x = x.view(-1, self.k, self.k)
         return x
-
 
 class PointNetfeat(nn.Module):
     def __init__(self, num_points=500, feature_transform=True, sym_op='max'):
         super(PointNetfeat, self).__init__()
-        self.stn1 = STN3d()
+        self.stn1 = STN3d(sym_op=sym_op)
         self.num_points = num_points
         self.feature_transform = feature_transform
         self.sym_op = sym_op
-        #self.stn1 = QSTN(num_points=num_points, dim=3, sym_op=self.sym_op)
         if self.feature_transform:
-            self.stn = STN(num_points=num_points, dim=64, sym_op=self.sym_op)
+            self.fstn = STNkd(k=64, sym_op=sym_op)
 
         self.conv0a = torch.nn.Conv1d(3, 64, 1)
         self.conv0b = torch.nn.Conv1d(64, 64, 1)
@@ -112,22 +108,12 @@ class PointNetfeat(nn.Module):
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
 
-        if self.sym_op == 'max':
-            self.mp1 = torch.nn.MaxPool1d(num_points)
-        elif self.sym_op == 'sum':
-            self.mp1 = None
+        self.mp1 = torch.nn.MaxPool1d(num_points)
+
         
     def forward(self, x):
         n_pts = x.size()[2]
         # input transform
-        '''
-        x = x.view(x.size(0), 3, -1)
-        trans = self.stn1(x)
-        x = x.transpose(2, 1)
-        x = torch.bmm(x, trans)
-        x = x.transpose(2, 1)
-        x = x.contiguous().view(x.size(0), 3, -1)
-        '''
         trans = self.stn1(x)
         x = x.transpose(2, 1)
         x = torch.bmm(x, trans)
@@ -139,7 +125,7 @@ class PointNetfeat(nn.Module):
         
         # feature transform
         if self.feature_transform:
-            trans_feat = self.stn(x)
+            trans_feat = self.fstn(x)
             x = x.transpose(2, 1)
             x = torch.bmm(x, trans_feat)
             x = x.transpose(2, 1)
@@ -159,15 +145,10 @@ class PointNetfeat(nn.Module):
         elif self.sym_op == 'sum':
             x = torch.sum(x, 2, keepdim=True)
 
-        #x = x.view(-1, 1024)
-        #print(x.size())
-        #return x, trans
-
         # use both point features and global feature for normal estimation
         x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
         newX = torch.cat([x, pointFeat], 1)
         newX = torch.sum(newX, 2, keepdim=True)
-        #newX = newX.view(-1, 1088)
         newX = newX.view(-1, 2048)
         return newX, trans, trans_feat
 
@@ -181,15 +162,6 @@ class NormalNet(nn.Module):
             feature_transform=feature_transform,
             sym_op=sym_op)
         self.output_dim = output_dim
-        '''
-        self.fc0 = nn.Linear(1088, 512)
-        self.fc1 = nn.Linear(512, 256)
-        self.fc2 = nn.Linear(256, output_dim)
-        self.bn0 = nn.BatchNorm1d(512)
-        self.bn1 = nn.BatchNorm1d(256)
-        self.do0 = nn.Dropout(p=0.5)
-        self.do = nn.Dropout(p=0.3)
-        '''
         self.fc0 = nn.Linear(2048, 1024)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 256)
@@ -205,13 +177,6 @@ class NormalNet(nn.Module):
 
     def forward(self, x):
         x, trans, trans_feat = self.feat(x)
-        '''
-        x = F.relu(self.bn0(self.fc0(x)))
-        x = self.do0(x)
-        x = F.relu(self.bn1(self.fc1(x)))
-        x = self.do(x)
-        x = self.fc2(x)
-        '''
         x = F.relu(self.bn0(self.fc0(x)))
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.do(x)

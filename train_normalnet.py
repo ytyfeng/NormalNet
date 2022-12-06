@@ -18,23 +18,17 @@ def parse_arguments():
 
     parser.add_argument('--indir', type=str, default='./pclouds', help='input folder (point clouds)')
     parser.add_argument('--outdir', type=str, default='./models', help='output folder (trained models)')
-    parser.add_argument('--gpu_idx', type=int, default=0, help='set < 0 to use CPU')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--nepoch', type=int, default=25, help='number of epochs to train for')
     parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
     parser.add_argument('--patch_radius', type=float, default=[0.05], nargs='+', help='patch radius in multiples of the shape\'s bounding box diagonal, multiple values for multi-scale.')
-
     parser.add_argument('--patch_point_count_std', type=float, default=0, help='standard deviation of the number of points in a patch')
     parser.add_argument('--patches_per_shape', type=int, default=1000, help='number of patches sampled from each shape in an epoch')
     parser.add_argument('--seed', type=int, default=3627473, help='manual seed')
     parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')
     parser.add_argument('--momentum', type=float, default=0.9, help='gradient descent momentum')
-    parser.add_argument('--normal_loss', type=str, default='ms_euclidean', help='Normal loss type:\n'
-                        'ms_euclidean: mean square euclidean distance\n'
-                        'ms_oneminuscos: mean square 1-cos(angle error)')
-
     parser.add_argument('--feature_transform', type=int, default=True, help='use feature transform')
-    parser.add_argument('--sym_op', type=str, default='max', help='symmetry operation')
+    parser.add_argument('--sym_op', type=str, default='sum', help='symmetry operation')
     parser.add_argument('--points_per_patch', type=int, default=500, help='max. number of points per patch')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay value for L2 regularization (eg. 0.01)')
     return parser.parse_args()
@@ -42,9 +36,10 @@ def parse_arguments():
 def train_normalnet(opt):
     print(opt)
     
-    device = torch.device("cpu" if opt.gpu_idx < 0 else "cuda:%d" % opt.gpu_idx)
-    if opt.gpu_idx < 0 and torch.backends.mps.is_available():
+    if torch.backends.mps.is_available():
         device = torch.device("mps")
+    else:
+        device = torch.device("cuda:0")
 
     params_filename = os.path.join(opt.outdir, 'normal_estimation_params.pth')
     model_filename = os.path.join(opt.outdir, 'normal_estimation_model.pth')
@@ -109,7 +104,7 @@ def train_normalnet(opt):
         feature_transform=opt.feature_transform,
         sym_op=opt.sym_op)
     optimizer = optim.SGD(normalnet.parameters(), lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1) # milestones in number of optimizer iterations
+    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1)
     normalnet.to(device)
 
     train_num_batch = len(train_dataloader)
@@ -139,7 +134,7 @@ def train_normalnet(opt):
             optimizer.zero_grad()
             pred, trans, _ = normalnet(points)
 
-            loss = compute_loss(pred, target, trans, opt.normal_loss)
+            loss = compute_cos_loss(pred, target, trans)
 
             # backpropagate through entire network to compute gradients of loss w.r.t. parameters
             loss.backward()
@@ -171,7 +166,7 @@ def train_normalnet(opt):
                 with torch.no_grad():
                     pred, trans, _ = normalnet(points)
 
-                loss = compute_loss(pred, target, trans, opt.normal_loss)
+                loss = compute_cos_loss(pred, target, trans)
                 loss_avg += loss.item()
                 # print info and update log file
                 print('[Normal Estimation %d: %d/%d] Test loss: %f' % (epoch, i, train_num_batch-1, loss.item()))
@@ -194,17 +189,11 @@ def train_normalnet(opt):
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)
 
-def compute_loss(pred, target, trans, normal_loss):
+def compute_cos_loss(pred, target, trans):
     loss = 0
     o_pred = pred[:, 0:3]
     o_target = target[0]
-    # o_pred = torch.bmm(o_pred.unsqueeze(1), trans.transpose(2, 1)).squeeze(1)
-    if normal_loss == 'ms_euclidean':
-        #loss += (o_pred - o_target).pow(2).sum(1).mean()
-        loss += torch.min((o_pred-o_target).pow(2).sum(1), (o_pred+o_target).pow(2).sum(1)).mean()
-    elif normal_loss == 'ms_oneminuscos':
-        loss += (1-torch.abs(cos_angle(o_pred, o_target))).pow(2).mean()
-        #loss += (1-cos_angle(o_pred, o_target)).pow(2).mean()
+    loss += (1-torch.abs(cos_angle(o_pred, o_target))).pow(2).mean()
     return loss
 
 if __name__ == '__main__':
