@@ -198,7 +198,7 @@ def compute_loss(pred, target, trans, normal_loss):
     loss = 0
     o_pred = pred[:, 0:3]
     o_target = target[0]
-    o_pred = torch.bmm(o_pred.unsqueeze(1), trans.transpose(2, 1)).squeeze(1)
+    # o_pred = torch.bmm(o_pred.unsqueeze(1), trans.transpose(2, 1)).squeeze(1)
     if normal_loss == 'ms_euclidean':
         loss += (o_pred - o_target).pow(2).sum(1).mean()
     elif normal_loss == 'ms_oneminuscos':
