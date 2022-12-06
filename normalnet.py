@@ -173,7 +173,11 @@ class NormalNet(nn.Module):
             feature_transform=feature_transform,
             sym_op=sym_op)
         self.output_dim = output_dim
-        
+        self.fc0 = nn.Linear(2048, 1024)
+        self.fc1 = nn.Linear(1024, output_dim)
+        self.bn0 = nn.BatchNorm1d(1024)
+        self.do = nn.Dropout(p=0.3)
+        '''
         self.fc0 = nn.Linear(2048, 1024)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 256)
@@ -186,9 +190,15 @@ class NormalNet(nn.Module):
         self.bn3 = nn.BatchNorm1d(128)
         self.bn4 = nn.BatchNorm1d(64)
         self.do = nn.Dropout(p=0.3)
+        '''
+
 
     def forward(self, x):
         x, trans, trans_feat = self.feat(x)
+        x = F.relu(self.bn0(self.fc0(x)))
+        x = self.do(x)
+        x = self.fc1(x)
+        '''
         x = F.relu(self.bn0(self.fc0(x)))
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.do(x)
@@ -199,7 +209,7 @@ class NormalNet(nn.Module):
         x = F.relu(self.bn4(self.fc4(x)))
         x = self.do(x)
         x = self.fc5(x)
-
+        '''
         return x, trans, trans_feat
 
 class QSTN(nn.Module):
