@@ -200,9 +200,11 @@ def compute_loss(pred, target, trans, normal_loss):
     o_target = target[0]
     # o_pred = torch.bmm(o_pred.unsqueeze(1), trans.transpose(2, 1)).squeeze(1)
     if normal_loss == 'ms_euclidean':
-        loss += (o_pred - o_target).pow(2).sum(1).mean()
+        #loss += (o_pred - o_target).pow(2).sum(1).mean()
+        loss += torch.min((o_pred-o_target).pow(2).sum(1), (o_pred+o_target).pow(2).sum(1)).mean()
     elif normal_loss == 'ms_oneminuscos':
-        loss += (1-cos_angle(o_pred, o_target)).pow(2).mean()
+        loss += (1-torch.abs(cos_angle(o_pred, o_target))).pow(2).mean()
+        #loss += (1-cos_angle(o_pred, o_target)).pow(2).mean()
     return loss
 
 if __name__ == '__main__':
