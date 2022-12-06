@@ -177,7 +177,7 @@ def train_normalnet(opt):
                 print('[Normal Estimation %d: %d/%d] Test loss: %f' % (epoch, i, train_num_batch-1, loss.item()))
         loss_avg = 10* loss_avg / train_num_batch 
         losses.append(loss_avg)
-        train_loss_avg = loss_avg / train_num_batch
+        train_loss_avg = train_loss_avg / train_num_batch
         train_losses.append(train_loss_avg)
         # save model, overwriting the old model
         if epoch == opt.nepoch-1:
