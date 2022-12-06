@@ -118,8 +118,10 @@ def train_normalnet(opt):
     torch.save(opt, params_filename)
 
     losses = []
+    train_losses = []
     for epoch in range(opt.nepoch):
         loss_avg = 0.0
+        train_loss_avg = 0.0
         for i, data in enumerate(train_dataloader, 0):
 
             # set to training mode
@@ -150,7 +152,7 @@ def train_normalnet(opt):
 
             # print info and update log file
             print('[Normal Estimation %d: %d/%d] Train loss: %f' % (epoch, i, train_num_batch-1, loss.item()))
-
+            train_loss_avg += loss.item()
             if i % 10 == 0:
                 j, data = next(enumerate(test_dataloader, 0))
                 # set to evaluation mode
@@ -175,6 +177,8 @@ def train_normalnet(opt):
                 print('[Normal Estimation %d: %d/%d] Test loss: %f' % (epoch, i, train_num_batch-1, loss.item()))
         loss_avg = 10* loss_avg / train_num_batch 
         losses.append(loss_avg)
+        train_loss_avg = loss_avg / train_num_batch
+        train_losses.append(train_loss_avg)
         # save model, overwriting the old model
         if epoch == opt.nepoch-1:
             torch.save(normalnet.state_dict(), model_filename)
@@ -184,6 +188,8 @@ def train_normalnet(opt):
     # write losses to file for graph
     arr = np.array(losses)
     np.savetxt('losses.txt', arr)
+    arr2 = np.array(train_losses)
+    np.savetxt('train_losses.txt', arr2)
 
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)

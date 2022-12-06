@@ -176,8 +176,10 @@ class NormalNet(nn.Module):
             sym_op=sym_op)
         self.output_dim = output_dim
         self.fc0 = nn.Linear(1088, 512)
-        self.fc1 = nn.Linear(512, output_dim)
+        self.fc1 = nn.Linear(512, 256)
+        self.fc2 = nn.Linear(256, output_dim)
         self.bn0 = nn.BatchNorm1d(512)
+        self.bn1 = nn.BatchNorm1d(256)
         self.do = nn.Dropout(p=0.3)
         '''
         self.fc0 = nn.Linear(2048, 1024)
@@ -199,7 +201,9 @@ class NormalNet(nn.Module):
         x, trans, trans_feat = self.feat(x)
         x = F.relu(self.bn0(self.fc0(x)))
         x = self.do(x)
-        x = self.fc1(x)
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = self.do(x)
+        x = self.fc2(x)
         '''
         x = F.relu(self.bn0(self.fc0(x)))
         x = F.relu(self.bn1(self.fc1(x)))
