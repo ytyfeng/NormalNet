@@ -232,7 +232,7 @@ class QSTN(nn.Module):
 
         # symmetric operation over all points
         x = self.mp1(x)
-        x = x.view(-1, 1024*self.num_scales)
+        x = x.view(-1, 1024)
 
         x = F.relu(self.bn4(self.fc1(x)))
         x = F.relu(self.bn5(self.fc2(x)))

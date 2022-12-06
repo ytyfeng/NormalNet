@@ -40,11 +40,10 @@ class RandomPointcloudPatchSampler(data.sampler.Sampler):
 
 
 class Shape():
-    def __init__(self, pts, kdtree, normals=None, curv=None, pidx=None):
+    def __init__(self, pts, kdtree, normals=None, pidx=None):
         self.pts = pts
         self.kdtree = kdtree
         self.normals = normals
-        self.curv = curv
         self.pidx = pidx # patch center points indices (None means all points are potential patch centers)
 
 
