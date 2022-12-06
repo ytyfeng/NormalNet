@@ -141,11 +141,13 @@ class PointNetfeat(nn.Module):
         else:
             trans_feat = None
 
+        # local point feature    
+        pointFeat = x
         # mlp (64,128,1024)
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.bn3(self.conv3(x))
-        pointFeat = x
+        
         # symmetric max operation over all points
         if self.sym_op == 'max':
             x = self.mp1(x)
@@ -160,7 +162,7 @@ class PointNetfeat(nn.Module):
         x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
         newX = torch.cat([x, pointFeat], 1)
         newX = torch.sum(newX, 2, keepdim=True)
-        newX = newX.view(-1, 2048)
+        newX = newX.view(-1, 1088)
         return newX, trans, trans_feat
 
 class NormalNet(nn.Module):
@@ -173,9 +175,9 @@ class NormalNet(nn.Module):
             feature_transform=feature_transform,
             sym_op=sym_op)
         self.output_dim = output_dim
-        self.fc0 = nn.Linear(2048, 1024)
-        self.fc1 = nn.Linear(1024, output_dim)
-        self.bn0 = nn.BatchNorm1d(1024)
+        self.fc0 = nn.Linear(1088, 512)
+        self.fc1 = nn.Linear(512, output_dim)
+        self.bn0 = nn.BatchNorm1d(512)
         self.do = nn.Dropout(p=0.3)
         '''
         self.fc0 = nn.Linear(2048, 1024)
