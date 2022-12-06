@@ -135,9 +135,9 @@ def train_normalnet(opt):
             target = tuple(t.to(device) for t in target)
 
             optimizer.zero_grad()
-            pred, _, _ = normalnet(points)
+            pred, trans, _ = normalnet(points)
 
-            loss = compute_loss(pred, target, opt.normal_loss)
+            loss = compute_loss(pred, target, trans, opt.normal_loss)
 
             # backpropagate through entire network to compute gradients of loss w.r.t. parameters
             loss.backward()
@@ -167,9 +167,9 @@ def train_normalnet(opt):
 
                 # forward pass
                 with torch.no_grad():
-                    pred, _, _ = normalnet(points)
+                    pred, trans, _ = normalnet(points)
 
-                loss = compute_loss(pred, target, opt.normal_loss)
+                loss = compute_loss(pred, target, trans, opt.normal_loss)
                 loss_avg += loss.item()
                 # print info and update log file
                 print('[Normal Estimation %d: %d/%d] Test loss: %f' % (epoch, i, train_num_batch-1, loss.item()))
@@ -188,10 +188,11 @@ def train_normalnet(opt):
 def cos_angle(v1, v2):
     return torch.bmm(v1.unsqueeze(1), v2.unsqueeze(2)).view(-1) / torch.clamp(v1.norm(2, 1) * v2.norm(2, 1), min=0.000001)
 
-def compute_loss(pred, target, normal_loss):
+def compute_loss(pred, target, trans, normal_loss):
     loss = 0
     o_pred = pred[:, 0:3]
     o_target = target[0]
+    o_pred = torch.bmm(o_pred.unsqueeze(1), trans.transpose(2, 1)).squeeze(1)
     if normal_loss == 'ms_euclidean':
         loss += (o_pred - o_target).pow(2).sum(1).mean()
     elif normal_loss == 'ms_oneminuscos':
