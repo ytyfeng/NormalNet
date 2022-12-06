@@ -5,6 +5,42 @@ import torch.nn.parallel
 import torch.utils.data
 import torch.nn.functional as F
 
+class STN3d(nn.Module):
+    def __init__(self):
+        super(STN3d, self).__init__()
+        self.conv1 = torch.nn.Conv1d(3, 64, 1)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.conv3 = torch.nn.Conv1d(128, 1024, 1)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 9)
+        self.relu = nn.ReLU()
+
+        self.bn1 = nn.BatchNorm1d(64)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.bn3 = nn.BatchNorm1d(1024)
+        self.bn4 = nn.BatchNorm1d(512)
+        self.bn5 = nn.BatchNorm1d(256)
+
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = torch.max(x, 2, keepdim=True)[0]
+        x = x.view(-1, 1024)
+
+        x = F.relu(self.bn4(self.fc1(x)))
+        x = F.relu(self.bn5(self.fc2(x)))
+        x = self.fc3(x)
+
+        iden = Variable(torch.from_numpy(np.array([1,0,0,0,1,0,0,0,1]).astype(np.float32))).view(1,9).repeat(batchsize,1)
+        if x.is_cuda:
+            iden = iden.cuda()
+        x = x + iden
+        x = x.view(-1, 3, 3)
+        return x
 
 class STN(nn.Module):
     def __init__(self, num_points=500, dim=3, sym_op='max'):
@@ -36,7 +72,10 @@ class STN(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
 
         # symmetric operation over all points
-        x = self.mp1(x)
+        if self.sym_op == 'max':
+            x = self.mp1(x)
+        elif self.sym_op == 'sum':
+            x = torch.sum(x, 2, keepdim=True)
         
         x = x.view(-1, 1024)
 
@@ -53,6 +92,7 @@ class STN(nn.Module):
 class PointNetfeat(nn.Module):
     def __init__(self, num_points=500, feature_transform=True, sym_op='max'):
         super(PointNetfeat, self).__init__()
+        self.stn3d = STN3d()
         self.num_points = num_points
         self.feature_transform = feature_transform
         self.sym_op = sym_op
@@ -78,18 +118,23 @@ class PointNetfeat(nn.Module):
         
     def forward(self, x):
         n_pts = x.size()[2]
+        trans = self.stn3d(x)
+        x = x.transpose(2, 1)
+        x = torch.bmm(x, trans)
+        x = x.transpose(2, 1)
+
         # mlp (64,64)
         x = F.relu(self.bn0a(self.conv0a(x)))
         x = F.relu(self.bn0b(self.conv0b(x)))
         
         # feature transform
         if self.feature_transform:
-            trans = self.stn(x)
+            trans_feat = self.stn(x)
             x = x.transpose(2, 1)
-            x = torch.bmm(x, trans)
+            x = torch.bmm(x, trans_feat)
             x = x.transpose(2, 1)
         else:
-            trans = None
+            trans_feat = None
 
         # mlp (64,128,1024)
         x = F.relu(self.bn1(self.conv1(x)))
@@ -111,7 +156,7 @@ class PointNetfeat(nn.Module):
         newX = torch.cat([x, pointFeat], 1)
         newX = torch.sum(newX, 2, keepdim=True)
         newX = newX.view(-1, 2048)
-        return newX, trans
+        return newX, trans, trans_feat
 
 class NormalNet(nn.Module):
     def __init__(self, num_points=500, output_dim=3, feature_transform=True, sym_op='max'):
@@ -138,7 +183,7 @@ class NormalNet(nn.Module):
         self.do = nn.Dropout(p=0.3)
 
     def forward(self, x):
-        x, trans = self.feat(x)
+        x, trans, trans_feat = self.feat(x)
         x = F.relu(self.bn0(self.fc0(x)))
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.do(x)
@@ -150,5 +195,5 @@ class NormalNet(nn.Module):
         x = self.do(x)
         x = self.fc5(x)
 
-        return x, trans
+        return x, trans, trans_feat
 

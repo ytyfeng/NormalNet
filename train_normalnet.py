@@ -135,7 +135,7 @@ def train_normalnet(opt):
             target = tuple(t.to(device) for t in target)
 
             optimizer.zero_grad()
-            pred, _ = normalnet(points)
+            pred, _, _ = normalnet(points)
 
             loss = compute_loss(pred, target, opt.normal_loss)
 
@@ -167,7 +167,7 @@ def train_normalnet(opt):
 
                 # forward pass
                 with torch.no_grad():
-                    pred, _ = normalnet(points)
+                    pred, _, _ = normalnet(points)
 
                 loss = compute_loss(pred, target, opt.normal_loss)
                 loss_avg += loss.item()
