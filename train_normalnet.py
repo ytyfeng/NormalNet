@@ -36,7 +36,7 @@ def parse_arguments():
     parser.add_argument('--feature_transform', type=int, default=True, help='use feature transform')
     parser.add_argument('--sym_op', type=str, default='max', help='symmetry operation')
     parser.add_argument('--points_per_patch', type=int, default=500, help='max. number of points per patch')
-
+    parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay value for L2 regularization (eg. 0.01)')
     return parser.parse_args()
 
 def train_normalnet(opt):
@@ -108,7 +108,7 @@ def train_normalnet(opt):
         output_dim=3,
         feature_transform=opt.feature_transform,
         sym_op=opt.sym_op)
-    optimizer = optim.SGD(normalnet.parameters(), lr=opt.lr, momentum=opt.momentum)
+    optimizer = optim.SGD(normalnet.parameters(), lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1) # milestones in number of optimizer iterations
     normalnet.to(device)
 
