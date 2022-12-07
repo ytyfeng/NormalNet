@@ -9,6 +9,7 @@ import torch.nn.functional as F
 class STN3d(nn.Module):
     def __init__(self, sym_op="sum"):
         super(STN3d, self).__init__()
+        self.sym_op = sym_op
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
@@ -49,6 +50,7 @@ class STN3d(nn.Module):
 class STNkd(nn.Module):
     def __init__(self, k=64, sym_op="sum"):
         super(STNkd, self).__init__()
+        self.sym_op = sym_op
         self.conv1 = torch.nn.Conv1d(k, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
