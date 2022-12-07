@@ -7,12 +7,13 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 class STN3d(nn.Module):
-    def __init__(self, sym_op="sum"):
+    def __init__(self, sym_op="sum", num_points=500):
         super(STN3d, self).__init__()
         self.mps_device = None
         if torch.backends.mps.is_available():
             self.mps_device = torch.device("mps")
         self.sym_op = sym_op
+        self.num_points = num_points
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
@@ -20,7 +21,7 @@ class STN3d(nn.Module):
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, 9)
         self.relu = nn.ReLU()
-
+        self.mp1 = torch.nn.MaxPool1d(num_points)
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
@@ -34,7 +35,7 @@ class STN3d(nn.Module):
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         if self.sym_op == 'max':
-            x = torch.max(x, 2, keepdim=True)
+            x = self.mp1(x)
         elif self.sym_op == 'sum':
             x = torch.sum(x, 2, keepdim=True)
         x = x.view(-1, 1024)
@@ -53,12 +54,13 @@ class STN3d(nn.Module):
         return x
 
 class STNkd(nn.Module):
-    def __init__(self, k=64, sym_op="sum"):
+    def __init__(self, k=64, sym_op="sum", num_points=500):
         super(STNkd, self).__init__()
         self.mps_device = None
         if torch.backends.mps.is_available():
             self.mps_device = torch.device("mps")
         self.sym_op = sym_op
+        self.num_points = num_points
         self.conv1 = torch.nn.Conv1d(k, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
@@ -66,6 +68,7 @@ class STNkd(nn.Module):
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, k*k)
         self.relu = nn.ReLU()
+        self.mp1 = torch.nn.MaxPool1d(num_points)
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
@@ -80,7 +83,7 @@ class STNkd(nn.Module):
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         if self.sym_op == 'max':
-            x = torch.max(x, 2, keepdim=True)
+            x = self.mp1(x)
         elif self.sym_op == 'sum':
             x = torch.sum(x, 2, keepdim=True)
         
