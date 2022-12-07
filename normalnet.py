@@ -103,12 +103,13 @@ class STNkd(nn.Module):
         return x
 
 class PointNetfeat(nn.Module):
-    def __init__(self, num_points=500, feature_transform=True, sym_op='max'):
+    def __init__(self, num_points=500, feature_transform=True, sym_op='max', global_feature=False):
         super(PointNetfeat, self).__init__()
         self.stn1 = STN3d(sym_op=sym_op)
         self.num_points = num_points
         self.feature_transform = feature_transform
         self.sym_op = sym_op
+        self.global_feature = global_feature
         if self.feature_transform:
             self.fstn = STNkd(k=64, sym_op=sym_op)
 
@@ -161,21 +162,27 @@ class PointNetfeat(nn.Module):
             x = torch.sum(x, 2, keepdim=True)
 
         # use both point features and global feature for normal estimation
-        x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
-        newX = torch.cat([x, pointFeat], 1)
-        newX = torch.sum(newX, 2, keepdim=True)
-        newX = newX.view(-1, 2048)
-        return newX, trans, trans_feat
+        if self.global_feature == False:
+            x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
+            newX = torch.cat([x, pointFeat], 1)
+            newX = torch.sum(newX, 2, keepdim=True)
+            newX = newX.view(-1, 2048)
+            return newX, trans, trans_feat
+        else:
+            # only use global feature
+            x = x.view(-1, 1024)
+            return x, trans, trans_feat
 
 class NormalNet(nn.Module):
-    def __init__(self, num_points=500, output_dim=3, feature_transform=True, sym_op='max'):
+    def __init__(self, num_points=500, output_dim=3, feature_transform=True, sym_op='max', global_feature=False):
         super(NormalNet, self).__init__()
         self.num_points = num_points
-        
         self.feat = PointNetfeat(
             num_points=num_points,
             feature_transform=feature_transform,
-            sym_op=sym_op)
+            sym_op=sym_op,
+            global_feature=global_feature)
+        self.global_feature = global_feature
         self.output_dim = output_dim
         self.fc0 = nn.Linear(2048, 1024)
         self.fc1 = nn.Linear(1024, 512)
@@ -192,7 +199,8 @@ class NormalNet(nn.Module):
 
     def forward(self, x):
         x, trans, trans_feat = self.feat(x)
-        x = F.relu(self.bn0(self.fc0(x)))
+        if self.global_feature == False:
+            x = F.relu(self.bn0(self.fc0(x)))
         x = F.relu(self.bn1(self.fc1(x)))
         x = self.do(x)
         x = F.relu(self.bn2(self.fc2(x)))
