@@ -1,7 +1,6 @@
 .ipynb_checkpoints/
 __pycache__
 *.pyc
-*.ipynb
 *.so
 .idea*
 *.egg-info/
