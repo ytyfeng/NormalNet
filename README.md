@@ -3,16 +3,17 @@
 ## Ty Feng, Yasaman Hajnorouzali, Mahdis Rabbani
 
 To run:
+
 ```
 cd pclouds
 python download_pclouds.py
 cd ..
-python train_normalnet.py
+python train_normalnet.py --indir ./pclouds --nepoch 100 --weight_decay 0.01 --sym_op sum 
 
 ```
 
-To run on CPU:
+To evaluate:
 ```
-python train_normalnet.py --gpu_idx -1
+python eval_normalnet.py --model /models/Normal_estimation_model_99.pth
 
 ```

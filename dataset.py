@@ -15,6 +15,22 @@ def load_shape(point_filename, normals_filename):
 
     return Shape(pts=pts, kdtree=kdtree, normals=normals)
 
+class SequentialPointcloudPatchSampler(data.sampler.Sampler):
+
+    def __init__(self, data_source):
+        self.data_source = data_source
+        self.total_patch_count = None
+
+        self.total_patch_count = 0
+        for shape_ind, _ in enumerate(self.data_source.shape_names):
+            self.total_patch_count = self.total_patch_count + self.data_source.shape_patch_count[shape_ind]
+
+    def __iter__(self):
+        return iter(range(self.total_patch_count))
+
+    def __len__(self):
+        return self.total_patch_count
+
 class RandomPointcloudPatchSampler(data.sampler.Sampler):
 
     def __init__(self, data_source, patches_per_shape, seed=None):
