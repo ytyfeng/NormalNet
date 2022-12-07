@@ -9,6 +9,9 @@ import torch.nn.functional as F
 class STN3d(nn.Module):
     def __init__(self, sym_op="sum"):
         super(STN3d, self).__init__()
+        self.mps_device = None
+        if torch.backends.mps.is_available():
+            self.mps_device = torch.device("mps")
         self.sym_op = sym_op
         self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -31,9 +34,9 @@ class STN3d(nn.Module):
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         if self.sym_op == 'max':
-            x = torch.max(x, 2, keepdim=True)[0]
+            x = torch.max(x, 2, keepdim=True)
         elif self.sym_op == 'sum':
-            x = torch.sum(x, 2, keepdim=True)[0]
+            x = torch.sum(x, 2, keepdim=True)
         x = x.view(-1, 1024)
 
         x = F.relu(self.bn4(self.fc1(x)))
@@ -43,6 +46,8 @@ class STN3d(nn.Module):
         iden = Variable(torch.from_numpy(np.array([1,0,0,0,1,0,0,0,1]).astype(np.float32))).view(1,9).repeat(batchsize,1)
         if x.is_cuda:
             iden = iden.cuda()
+        if self.mps_device != None:
+            iden = iden.to(self.mps_device)
         x = x + iden
         x = x.view(-1, 3, 3)
         return x
@@ -50,6 +55,9 @@ class STN3d(nn.Module):
 class STNkd(nn.Module):
     def __init__(self, k=64, sym_op="sum"):
         super(STNkd, self).__init__()
+        self.mps_device = None
+        if torch.backends.mps.is_available():
+            self.mps_device = torch.device("mps")
         self.sym_op = sym_op
         self.conv1 = torch.nn.Conv1d(k, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -72,9 +80,9 @@ class STNkd(nn.Module):
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
         if self.sym_op == 'max':
-            x = torch.max(x, 2, keepdim=True)[0]
+            x = torch.max(x, 2, keepdim=True)
         elif self.sym_op == 'sum':
-            x = torch.sum(x, 2, keepdim=True)[0]
+            x = torch.sum(x, 2, keepdim=True)
         
         x = x.view(-1, 1024)
 
@@ -85,6 +93,8 @@ class STNkd(nn.Module):
         iden = Variable(torch.from_numpy(np.eye(self.k).flatten().astype(np.float32))).view(1,self.k*self.k).repeat(batchsize,1)
         if x.is_cuda:
             iden = iden.cuda()
+        if self.mps_device != None:
+            iden = iden.to(self.mps_device)
         x = x + iden
         x = x.view(-1, self.k, self.k)
         return x
