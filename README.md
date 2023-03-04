@@ -1,4 +1,4 @@
-# ECS 271 project
+# NormalNet: Using PointNet for Normal Estimation in 3D Point Clouds
 
 ## Ty Feng, Yasaman Hajnorouzali, Mahdis Rabbani
 
