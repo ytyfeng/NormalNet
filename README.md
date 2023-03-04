@@ -2,6 +2,10 @@
 
 ## Ty Feng, Yasaman Hajnorouzali, Mahdis Rabbani
 
+Project Report: [Project_Report.pdf](Project_Report.pdf)
+
+Presentation Video: [presentation.mp4](presentation.mp4)
+
 To run:
 
 ```
